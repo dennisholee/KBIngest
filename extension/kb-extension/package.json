@@ -1,0 +1,208 @@
+{
+  "name": "kb-extension",
+  "displayName": "KB Extension",
+  "description": "Personal knowledge base with Copilot Chat integration",
+  "version": "0.0.1",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dennislee/KBIngest"
+  },
+  "engines": {
+    "vscode": "^1.109.0",
+    "node": "20.20.2"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:kb-extension.helloWorld",
+    "onCommand:kb-extension.showDiagnostics",
+    "onCommand:kb-extension.storeApiKey",
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "chatParticipants": [
+      {
+        "id": "kb",
+        "name": "kb",
+        "description": "Knowledge Base assistant for managing and searching your personal knowledge base",
+        "isSticky": true,
+        "commands": [
+          {
+            "name": "search",
+            "description": "Search the knowledge base for relevant documents and information"
+          },
+          {
+            "name": "list",
+            "description": "List all documents in the knowledge base"
+          },
+          {
+            "name": "ingest",
+            "description": "Add new documents or content to the knowledge base"
+          },
+          {
+            "name": "help",
+            "description": "Show help and available commands"
+          }
+        ]
+      }
+    ],
+    "commands": [
+      {
+        "command": "kb-extension.helloWorld",
+        "title": "Hello World"
+      }
+    ],
+    "configuration": {
+      "title": "KB Extension",
+      "properties": {
+        "kbExtension.storage.databasePath": {
+          "type": "string",
+          "default": "~/.kbextension/data.db",
+          "description": "Path to SQLite database file for KB storage"
+        },
+        "kbExtension.storage.autoBackup": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically backup database on extension load"
+        },
+        "kbExtension.storage.backupRetention": {
+          "type": "integer",
+          "default": 7,
+          "description": "Number of days to retain database backups"
+        },
+        "kbExtension.embedding.provider": {
+          "type": "string",
+          "enum": [
+            "transformers",
+            "ollama",
+            "lm-studio"
+          ],
+          "default": "transformers",
+          "description": "Embedding provider (local only). 'transformers' = @xenova/transformers (local JS), 'ollama' = local Ollama server, 'lm-studio' = LM Studio"
+        },
+        "kbExtension.embedding.model": {
+          "type": "string",
+          "default": "all-MiniLM-L6-v2",
+          "description": "Model name for embeddings. For 'transformers': all-MiniLM-L6-v2 (384D), sentence-transformers/all-mpnet-base-v2 (768D). For 'ollama'/'lm-studio': model name in your deployment"
+        },
+        "kbExtension.embedding.dimension": {
+          "type": "integer",
+          "default": 384,
+          "description": "Vector embedding dimension (384 for MiniLM, 768 for larger models)"
+        },
+        "kbExtension.embedding.batchSize": {
+          "type": "integer",
+          "default": 32,
+          "description": "Batch size for embedding requests"
+        },
+        "kbExtension.embedding.cacheEmbeddings": {
+          "type": "boolean",
+          "default": true,
+          "description": "Cache computed embeddings to avoid re-embedding same chunks"
+        },
+        "kbExtension.search.semanticProvider": {
+          "type": "string",
+          "enum": [
+            "qdrant",
+            "local"
+          ],
+          "default": "qdrant",
+          "description": "Where to store and search vectors. 'qdrant' = local Qdrant Docker, 'local' = SQLite vectors table"
+        },
+        "kbExtension.search.fullTextEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable full-text search in addition to semantic search"
+        },
+        "kbExtension.search.hybridSearchWeight": {
+          "type": "number",
+          "default": 0.5,
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Weight for blending semantic (vector) and full-text search (0=FT only, 1=semantic only)"
+        },
+        "kbExtension.search.topK": {
+          "type": "integer",
+          "default": 10,
+          "description": "Default number of search results to return"
+        },
+        "kbExtension.ui.theme": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "light",
+            "dark"
+          ],
+          "default": "auto",
+          "description": "UI theme (auto follows VS Code)"
+        },
+        "kbExtension.ui.sidebarPosition": {
+          "type": "string",
+          "enum": [
+            "left",
+            "right"
+          ],
+          "default": "left",
+          "description": "Position of KB sidebar in VS Code"
+        },
+        "kbExtension.ui.autoRefresh": {
+          "type": "boolean",
+          "default": true,
+          "description": "Auto-refresh document list when files change"
+        },
+        "kbExtension.advanced.logLevel": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warn",
+            "info",
+            "debug"
+          ],
+          "default": "info",
+          "description": "Logging level for KB Extension"
+        },
+        "kbExtension.advanced.enableDiagnostics": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable detailed diagnostics logging (may impact performance)"
+        },
+        "kbExtension.advanced.connectionPoolSize": {
+          "type": "integer",
+          "default": 5,
+          "description": "Size of SQLite connection pool"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "jest"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "22.x",
+    "@types/vscode": "^1.109.0",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.9.1",
+    "eslint": "^9.39.3",
+    "jest": "^30.3.0",
+    "ts-jest": "^29.4.9",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.56.1"
+  },
+  "dependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "better-sqlite3": "^12.9.0",
+    "pdfjs-dist": "^4.10.38",
+    "sql.js": "^1.14.1",
+    "sqlite3": "^6.0.1",
+    "uuid": "^13.0.0"
+  }
+}
