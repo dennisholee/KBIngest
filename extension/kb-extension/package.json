@@ -187,6 +187,7 @@
   "devDependencies": {
     "@types/jest": "^30.0.0",
     "@types/node": "22.x",
+    "@types/sql.js": "^1.4.4",
     "@types/vscode": "^1.109.0",
     "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.5.2",
@@ -198,11 +199,8 @@
     "typescript-eslint": "^8.56.1"
   },
   "dependencies": {
-    "@types/better-sqlite3": "^7.6.13",
-    "better-sqlite3": "^12.9.0",
     "pdfjs-dist": "^4.10.38",
     "sql.js": "^1.14.1",
-    "sqlite3": "^6.0.1",
     "uuid": "^13.0.0"
   }
 }

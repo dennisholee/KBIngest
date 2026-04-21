@@ -1,0 +1,63 @@
+# Neural Networks: A Comprehensive Overview
+
+## Introduction
+
+Neural networks are computational models inspired by biological neural networks. They consist of interconnected nodes (neurons) that process information using connectionist approaches to computation.
+
+## Key Components
+
+### Neurons
+Artificial neurons are the fundamental units of neural networks. Each neuron receives weighted inputs, applies an activation function, and produces an output signal.
+
+### Weights and Biases
+Weights control the strength of connections between neurons. Biases provide additional learned parameters that shift the activation function.
+
+### Activation Functions
+Common activation functions include:
+- ReLU (Rectified Linear Unit): max(0, x), popular in deep networks
+- Sigmoid: 1/(1+e^-x), squashes output to [0,1]
+- Tanh: (e^x - e^-x)/(e^x + e^-x), range [-1,1]
+- Linear: identity function
+
+### Backpropagation
+Backpropagation is the fundamental algorithm for training neural networks. It computes gradients of the loss function with respect to weights using the chain rule, enabling efficient learning.
+
+## Architecture Types
+
+### Feedforward Networks
+Simple networks where information flows in one direction from input to output, no cycles.
+
+### Convolutional Neural Networks (CNNs)
+Specialized for image processing. Convolutional layers detect local patterns (edges, textures, shapes) at different scales.
+
+### Recurrent Neural Networks (RNNs)
+Process sequential data like text or time series. Hidden state maintains context between timesteps.
+
+### Transformers
+Recent architecture using self-attention mechanisms. Achieves state-of-the-art results in NLP and vision tasks.
+
+## Training Optimization
+
+### Gradient Descent
+Updates weights in the direction opposite to gradient of loss function. Learning rate controls step size.
+
+### Stochastic Gradient Descent (SGD)
+Updates weights using mini-batches instead of entire dataset. Introduces noise that can help escape local minima.
+
+### Adam Optimizer
+Combines adaptive learning rates with momentum. Maintains exponential moving averages of gradients and squared gradients.
+
+## Applications
+
+### Computer Vision
+Image classification, object detection, semantic segmentation, style transfer.
+
+### Natural Language Processing
+Text classification, machine translation, question answering, language modeling.
+
+### Reinforcement Learning
+Game playing, robotics control, autonomous systems.
+
+## Future Directions
+
+Research focuses on interpretability, efficiency, robustness to adversarial examples, and scaling to larger problems with fewer parameters.

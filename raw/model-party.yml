@@ -1,0 +1,95 @@
+dataContract: 1.3.0
+info:
+  title: Global Party Master & Governance Contract
+  description: Unified Party model with integrated Regulatory (KYC/AML) and Privacy (GDPR) metadata.
+  status: Production
+  version: 1.3.0
+
+schema:
+  type: table
+  columns:
+    # --- Core Identity & Governance ---
+    - name: party_id
+      type: uuid
+      constraints: [primary_key, not_null]
+    
+    - name: party_type
+      type: string
+      enum: [INDIVIDUAL, ORGANIZATION]
+      constraints: [not_null]
+
+    - name: data_sovereignty_region
+      type: string
+      description: Critical for GDPR/Cross-border data flow (e.g., EU, US, HK).
+      constraints: [not_null]
+
+    # --- PII & Regulatory (Hardened) ---
+    - name: tax_identities
+      type: array
+      description: Supports multi-jurisdiction tax residency (FATCA/CRS).
+      items:
+        type: record
+        fields:
+          - name: tax_id
+            type: string
+            tags: [PII, ENCRYPTED]
+          - name: issuing_country
+            type: string
+          - name: is_primary_tax_residence
+            type: boolean
+
+    # --- Individual Sub-type (Privacy Enhanced) ---
+    - name: individual_details
+      type: record
+      fields:
+        - name: birth_date
+          type: date
+          tags: [PII, SENSITIVE_PERSONAL_DATA]
+        - name: deceased_indicator
+          type: boolean
+          description: Lifecycle trigger for account freezing.
+
+    # --- Organization Sub-type (Risk Enhanced) ---
+    - name: organization_details
+      type: record
+      fields:
+        - name: registration_number
+          type: string
+        - name: legal_entity_identifier
+          type: string
+          description: Global LEI for MiFID II reporting.
+        - name: constitution_date
+          type: date
+
+    # --- Audit, Risk & Compliance ---
+    - name: kyc_status
+      type: string
+      enum: [PENDING, VERIFIED, EXPIRED, WAIVED]
+    - name: next_kyc_review_date
+      type: date
+      description: Predictive field for operational backlog management.
+    - name: party_status
+      type: string
+      enum: [PROSPECT, ACTIVE, DORMANT, CLOSED, BLACKLISTED]
+
+quality:
+  assertions:
+    # Business Rule: Tax Residency Logic
+    - name: primary_tax_residency_check
+      description: Active parties must have exactly one primary tax residence for CRS reporting.
+      condition: "party_status == 'ACTIVE' => count(tax_identities, x -> x.is_primary_tax_residence == true) == 1"
+
+    # Business Rule: Lifecycle Integrity
+    - name: kyc_freshness_check
+      description: Active customers cannot have a KYC review date older than 3 years (Standard Risk).
+      condition: "party_status == 'ACTIVE' AND risk_rating == 'MEDIUM' => date_diff(current_date, last_kyc_review_date) <= 1095"
+
+    # Business Rule: Organization Validity
+    - name: lei_requirement
+      description: Organizations in regulated regions must have an LEI.
+      condition: "party_type == 'ORGANIZATION' AND data_sovereignty_region == 'EU' => organization_details.legal_entity_identifier IS NOT NULL"
+
+    # Privacy Rule
+    - name: right_to_erasure_protection
+      description: Blacklisted parties cannot be purged even if GDPR 'Right to Erase' is requested (Legal Override).
+      condition: "party_status == 'BLACKLISTED' => is_deletable == false"

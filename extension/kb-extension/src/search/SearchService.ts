@@ -5,7 +5,7 @@
  * with relevance scoring and result reranking.
  */
 
-import type Database from 'better-sqlite3';
+import type { Database as SqlJsDatabase } from 'sql.js';
 import type {
   ISearchService,
   SearchRequest,
@@ -35,11 +35,11 @@ const DEFAULT_SCORING_CONFIG: RelevanceScoringConfig = {
  * SearchService: Core search engine for KB
  */
 export class SearchService implements ISearchService {
-  private db: Database.Database;
+  private db: SqlJsDatabase;
   private scoringConfig: RelevanceScoringConfig;
   private helpers: SearchScoringHelpers;
 
-  constructor(db: Database.Database, scoring?: Partial<RelevanceScoringConfig>) {
+  constructor(db: SqlJsDatabase, scoring?: Partial<RelevanceScoringConfig>) {
     this.db = db;
     this.scoringConfig = { ...DEFAULT_SCORING_CONFIG, ...scoring };
     this.helpers = this.createScoringHelpers();
@@ -444,7 +444,7 @@ export class SearchService implements ISearchService {
  * Create SearchService with database connection
  */
 export function createSearchService(
-  db: Database.Database,
+  db: SqlJsDatabase,
   scoring?: Partial<RelevanceScoringConfig>
 ): SearchService {
   return new SearchService(db, scoring);
