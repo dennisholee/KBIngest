@@ -4,7 +4,7 @@
  * Test coverage for full-text search, vector search, and hybrid search
  */
 
-import type { Database as SqlJsDatabase } from 'sql.js';
+import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 import { DatabaseConnection } from '../storage/DatabaseConnection';
@@ -13,7 +13,7 @@ import { SearchService, createSearchService } from '../search/SearchService';
 import type { SearchRequest, SearchResult } from '../search/types';
 
 describe('SearchService', () => {
-  let db: SqlJsDatabase;
+  let db: Database.Database;
   let storageManager: StorageManager;
   let searchService: SearchService;
 

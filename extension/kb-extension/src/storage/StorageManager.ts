@@ -48,7 +48,7 @@ export class StorageManager implements IStorageManager {
   async initialize(): Promise<void> {
     try {
       this.db = new DatabaseConnection(this.dbPath, this.schemaPath);
-      await this.db.open();
+      this.db.open();
       this.isInitialized = true;
       console.log(`[StorageManager] Initialized at ${this.dbPath}`);
     } catch (error) {
@@ -124,7 +124,7 @@ export class StorageManager implements IStorageManager {
 
   async close(): Promise<void> {
     if (this.db) {
-      await this.db.close();
+      this.db.close();
       this.db = null;
     }
     this.isInitialized = false;
@@ -999,18 +999,11 @@ export class StorageManager implements IStorageManager {
       const ingestionStmt = this.db!.prepare('SELECT COUNT(DISTINCT batch_id) as count FROM ingestion_status') as any;
 
       // Calculate database size in bytes
-      // PRAGMA page_size returns the page size (usually 4096)
-      // PRAGMA page_count returns the number of pages
       const pageSizeStmt = this.db!.prepare('PRAGMA page_size') as any;
       const pageCountStmt = this.db!.prepare('PRAGMA page_count') as any;
-      
-      const pageSizeResult = pageSizeStmt.get() as any;
-      const pageCountResult = pageCountStmt.get() as any;
-      
-      // PRAGMA results might use different key names, try common variations
-      const pageSize = pageSizeResult?.page_size || pageSizeResult?.[0] || 4096;
-      const pageCount = pageCountResult?.page_count || pageCountResult?.[0] || 0;
-      const databaseSizeBytes = Math.max(pageSize * pageCount, 0);
+      const pageSize = (pageSizeStmt.get() as any)?.page_size || 4096;
+      const pageCount = (pageCountStmt.get() as any)?.page_count || 0;
+      const databaseSizeBytes = pageSize * pageCount;
 
       return {
         documentCount: (docStmt.get() as any)?.count || 0,

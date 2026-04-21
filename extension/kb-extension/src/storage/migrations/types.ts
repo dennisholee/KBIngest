@@ -7,7 +7,7 @@
  * - Migration execution strategies
  */
 
-import type { Database as SqlJsDatabase } from 'sql.js';
+import type Database from 'better-sqlite3';
 
 /**
  * Migration classification (determines deployment strategy)
@@ -43,13 +43,13 @@ export interface Migration {
   estimatedMs: number;
   
   /** Apply this migration (upgrade) */
-  up(db: SqlJsDatabase): void | Promise<void>;
+  up(db: Database.Database): void | Promise<void>;
   
   /** Rollback this migration (downgrade) */
-  down(db: SqlJsDatabase): void | Promise<void>;
+  down(db: Database.Database): void | Promise<void>;
   
   /** Validation check after migration */
-  validate?(db: SqlJsDatabase): boolean;
+  validate?(db: Database.Database): boolean;
 }
 
 /**

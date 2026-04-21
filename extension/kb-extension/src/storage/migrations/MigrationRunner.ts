@@ -10,7 +10,7 @@
  * - Recording migration history
  */
 
-import type { Database as SqlJsDatabase } from 'sql.js';
+import type Database from 'better-sqlite3';
 import type {
   Migration,
   MigrationPlan,
@@ -62,7 +62,7 @@ export class MigrationRunner {
   /**
    * Get current schema version from database
    */
-  getCurrentVersion(db: SqlJsDatabase): number {
+  getCurrentVersion(db: Database.Database): number {
     try {
       const stmt = db.prepare(
         'SELECT MAX(version) as version FROM schema_version'
@@ -78,7 +78,7 @@ export class MigrationRunner {
    * Create a migration plan from current version to target
    */
   createPlan(
-    db: SqlJsDatabase,
+    db: Database.Database,
     targetVersion: number
   ): MigrationPlan {
     const currentVersion = this.getCurrentVersion(db);
@@ -135,7 +135,7 @@ export class MigrationRunner {
    * Execute a single migration with transaction safety
    */
   async executeMigration(
-    db: SqlJsDatabase,
+    db: Database.Database,
     migration: Migration,
     fromVersion: number
   ): Promise<MigrationResult> {
@@ -148,10 +148,8 @@ export class MigrationRunner {
         );
       }
 
-      // Execute within transaction (manual for sql.js)
-      try {
-        db.run('BEGIN TRANSACTION');
-        
+      // Execute within transaction
+      const executeInTransaction = db.transaction(() => {
         migration.up(db);
 
         // Record in schema_version table
@@ -159,12 +157,9 @@ export class MigrationRunner {
           'INSERT INTO schema_version (version, description) VALUES (?, ?)'
         ) as any;
         stmt.run(migration.version, migration.description);
-        
-        db.run('COMMIT');
-      } catch (error) {
-        db.run('ROLLBACK');
-        throw error;
-      }
+      });
+
+      executeInTransaction();
 
       // Validate if validator provided
       if (migration.validate && this.config.validateAfterMigration) {
@@ -214,7 +209,7 @@ export class MigrationRunner {
    * Execute complete migration plan
    */
   async migrate(
-    db: SqlJsDatabase,
+    db: Database.Database,
     targetVersion: number
   ): Promise<MigrationResult[]> {
     const plan = this.createPlan(db, targetVersion);
@@ -273,7 +268,7 @@ export class MigrationRunner {
   /**
    * Get migration history from database
    */
-  getMigrationHistory(db: SqlJsDatabase): Array<{
+  getMigrationHistory(db: Database.Database): Array<{
     version: number;
     description: string;
     appliedAt: Date;
