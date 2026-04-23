@@ -9,7 +9,7 @@
  * Next: v2 (Planned for future: performance optimizations)
  */
 
-import type Database from 'better-sqlite3';
+import type { Database as SqlJsDatabase } from 'sql.js';
 import type { Migration } from './types';
 import { MigrationType } from './types';
 
@@ -42,7 +42,7 @@ export const v1: Migration = {
     throw new Error('Cannot downgrade from v1 (initial schema)');
   },
 
-  validate: (db: Database.Database): boolean => {
+  validate: (db: SqlJsDatabase): boolean => {
     const tables = [
       'documents',
       'chunks',
@@ -87,7 +87,7 @@ export const v2: Migration = {
   type: MigrationType.SAFE,
   estimatedMs: 200,
 
-  up: (db: Database.Database) => {
+  up: (db: SqlJsDatabase) => {
     // Create cache table
     db.exec(`
       CREATE TABLE document_cache (
@@ -126,14 +126,14 @@ export const v2: Migration = {
     `);
   },
 
-  down: (db: Database.Database) => {
+  down: (db: SqlJsDatabase) => {
     db.exec('DROP TRIGGER IF EXISTS delete_document_cache_on_delete');
     db.exec('DROP TRIGGER IF EXISTS invalidate_document_cache_on_update');
     db.exec('DROP INDEX IF EXISTS idx_document_cache_valid');
     db.exec('DROP TABLE IF EXISTS document_cache');
   },
 
-  validate: (db: Database.Database): boolean => {
+  validate: (db: SqlJsDatabase): boolean => {
     try {
       const stmt = db.prepare('SELECT COUNT(*) FROM document_cache') as any;
       stmt.get();
@@ -163,7 +163,7 @@ export const v3: Migration = {
   type: MigrationType.SAFE,
   estimatedMs: 150,
 
-  up: (db: Database.Database) => {
+  up: (db: SqlJsDatabase) => {
     db.exec(`
       CREATE TABLE query_history (
         id TEXT PRIMARY KEY,
@@ -181,12 +181,12 @@ export const v3: Migration = {
     );
   },
 
-  down: (db: Database.Database) => {
+  down: (db: SqlJsDatabase) => {
     db.exec('DROP INDEX IF EXISTS idx_query_history_executed_at');
     db.exec('DROP TABLE IF EXISTS query_history');
   },
 
-  validate: (db: Database.Database): boolean => {
+  validate: (db: SqlJsDatabase): boolean => {
     try {
       const stmt = db.prepare('SELECT COUNT(*) FROM query_history') as any;
       stmt.get();

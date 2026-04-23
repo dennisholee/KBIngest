@@ -5,7 +5,7 @@
  * with relevance scoring and result reranking.
  */
 
-import type Database from 'better-sqlite3';
+import type { Database as SqlJsDatabase } from 'sql.js';
 import type {
   ISearchService,
   SearchRequest,
@@ -35,11 +35,11 @@ const DEFAULT_SCORING_CONFIG: RelevanceScoringConfig = {
  * SearchService: Core search engine for KB
  */
 export class SearchService implements ISearchService {
-  private db: Database.Database;
+  private db: SqlJsDatabase;
   private scoringConfig: RelevanceScoringConfig;
   private helpers: SearchScoringHelpers;
 
-  constructor(db: Database.Database, scoring?: Partial<RelevanceScoringConfig>) {
+  constructor(db: SqlJsDatabase, scoring?: Partial<RelevanceScoringConfig>) {
     this.db = db;
     this.scoringConfig = { ...DEFAULT_SCORING_CONFIG, ...scoring };
     this.helpers = this.createScoringHelpers();
@@ -100,7 +100,7 @@ export class SearchService implements ISearchService {
       // Escape special FTS5 characters
       const escapedQuery = this._escapeFtsQuery(query);
 
-      const stmt = this.db.prepare(`
+      const rows = this._queryAll(`
         SELECT 
           c.id as chunkId,
           c.document_id as documentId,
@@ -114,9 +114,7 @@ export class SearchService implements ISearchService {
         WHERE chunks_fts MATCH ?
         ORDER BY RANK ASC
         LIMIT ?
-      `) as any;
-
-      const rows = stmt.all(escapedQuery, limit) as Array<{
+      `, [escapedQuery, limit]) as Array<{
         chunkId: string;
         documentId: string;
         text: string;
@@ -138,10 +136,7 @@ export class SearchService implements ISearchService {
 
       return { success: true, data: results };
     } catch (error) {
-      return {
-        success: false,
-        error: { code: 'FTS_SEARCH_ERROR', message: String(error) },
-      };
+      return this._searchChunkTextFallback(query, limit, String(error));
     }
   }
 
@@ -155,7 +150,7 @@ export class SearchService implements ISearchService {
   ): Promise<QueryResult<SearchResult[]>> {
     try {
       // Get all vectors with same model
-      const stmt = this.db.prepare(`
+      const rows = this._queryAll(`
         SELECT 
           c.id as chunkId,
           c.document_id as documentId,
@@ -169,9 +164,7 @@ export class SearchService implements ISearchService {
         JOIN documents d ON c.document_id = d.id
         WHERE v.model_name = ?
         LIMIT ?
-      `) as any;
-
-      const rows = stmt.all(model, limit * 3) as Array<{
+      `, [model, limit * 3]) as Array<{
         chunkId: string;
         documentId: string;
         text: string;
@@ -343,13 +336,9 @@ export class SearchService implements ISearchService {
     lastIndexUpdate: Date;
   }> {
     try {
-      const docStmt = this.db.prepare('SELECT COUNT(*) as count FROM documents') as any;
-      const chunkStmt = this.db.prepare('SELECT COUNT(*) as count FROM chunks') as any;
-      const vectorStmt = this.db.prepare('SELECT COUNT(*) as count FROM vectors') as any;
-
-      const docs = docStmt.get() as { count: number };
-      const chunks = chunkStmt.get() as { count: number };
-      const indexed = vectorStmt.get() as { count: number };
+      const docs = this._queryOne('SELECT COUNT(*) as count FROM documents') as { count: number };
+      const chunks = this._queryOne('SELECT COUNT(*) as count FROM chunks') as { count: number };
+      const indexed = this._queryOne('SELECT COUNT(*) as count FROM vectors') as { count: number };
 
       return {
         totalDocuments: docs.count,
@@ -411,6 +400,121 @@ export class SearchService implements ISearchService {
     return query.replace(/[":*]/g, '\\$&');
   }
 
+  private _queryAll(sql: string, params: any[] = []): any[] {
+    const boundSql = this._bindParams(sql, params);
+    const result = this.db.exec(boundSql);
+    if (result.length === 0) {
+      return [];
+    }
+
+    return result[0].values.map((row) => this._rowToObject(result[0].columns, row));
+  }
+
+  private _queryOne(sql: string, params: any[] = []): any {
+    return this._queryAll(sql, params)[0] ?? null;
+  }
+
+  private _bindParams(sql: string, params: any[]): string {
+    let boundSql = sql;
+    for (const param of params) {
+      const value = param === null
+        ? 'NULL'
+        : typeof param === 'string'
+          ? `'${param.replace(/'/g, "''")}'`
+          : String(param);
+      boundSql = boundSql.replace('?', value);
+    }
+    return boundSql;
+  }
+
+  private _rowToObject(columns: string[], values: any[]): Record<string, any> {
+    return Object.fromEntries(columns.map((column, index) => [column, values[index]]));
+  }
+
+  /**
+   * Fallback retrieval when FTS5 is unavailable in sql.js.
+   */
+  private _searchChunkTextFallback(
+    query: string,
+    limit: number,
+    originalError?: string
+  ): QueryResult<SearchResult[]> {
+    try {
+      const loweredQuery = query.trim().toLowerCase();
+      const terms = loweredQuery.split(/\s+/).filter(Boolean);
+
+      if (terms.length === 0) {
+        return { success: true, data: [] };
+      }
+
+      const rows = this._queryAll(`
+        SELECT
+          c.id as chunkId,
+          c.document_id as documentId,
+          c.text,
+          d.name as documentName,
+          c.sequence
+        FROM chunks c
+        JOIN documents d ON c.document_id = d.id
+      `) as Array<{
+        chunkId: string;
+        documentId: string;
+        text: string;
+        documentName: string;
+        sequence: number;
+      }>;
+
+      const scoredResults: Array<SearchResult | null> = rows
+        .map((row) => {
+          const haystack = `${row.documentName} ${row.text}`.toLowerCase();
+          const matchedTerms = terms.filter((term) => haystack.includes(term));
+          const exactPhrase = haystack.includes(loweredQuery);
+
+          if (matchedTerms.length === 0) {
+            return null;
+          }
+
+          const baseScore = matchedTerms.length / terms.length;
+          const boostedScore = exactPhrase
+            ? Math.min(1.0, baseScore * this.scoringConfig.exactMatchBoost)
+            : baseScore;
+
+          return {
+            chunkId: row.chunkId,
+            documentId: row.documentId,
+            text: row.text,
+            documentName: row.documentName,
+            sequence: row.sequence,
+            ftScore: boostedScore,
+            score: boostedScore,
+          };
+        });
+
+      const results = scoredResults
+        .filter((result): result is SearchResult => Boolean(result))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, limit);
+
+      return {
+        success: true,
+        data: results,
+        metadata: originalError
+          ? { executionTime: 0, rowsAffected: results.length }
+          : undefined,
+      };
+    } catch (fallbackError) {
+      return {
+        success: false,
+        error: {
+          code: 'FTS_SEARCH_ERROR',
+          message: originalError
+            ? `${originalError}; fallback failed: ${String(fallbackError)}`
+            : String(fallbackError),
+        },
+      };
+    }
+  }
+
   /**
    * Calculate cosine similarity between two vectors
    */
@@ -444,7 +548,7 @@ export class SearchService implements ISearchService {
  * Create SearchService with database connection
  */
 export function createSearchService(
-  db: Database.Database,
+  db: SqlJsDatabase,
   scoring?: Partial<RelevanceScoringConfig>
 ): SearchService {
   return new SearchService(db, scoring);

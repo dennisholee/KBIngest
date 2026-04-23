@@ -170,30 +170,31 @@ CREATE INDEX idx_ingestion_status_status ON ingestion_status(status);
 -- ==============================================================================
 
 -- FTS5 virtual table for semantic search on chunk content
-CREATE VIRTUAL TABLE chunks_fts USING fts5(
-  chunk_id UNINDEXED,
-  document_id UNINDEXED,
-  content,
-  tokenize = 'porter'  -- Porter stemming for better search
-);
-
--- Trigger to keep FTS index in sync with chunks table (INSERT)
-CREATE TRIGGER chunks_fts_insert AFTER INSERT ON chunks BEGIN
-  INSERT INTO chunks_fts(chunk_id, document_id, content) 
-  VALUES (new.id, new.document_id, new.text);
-END;
-
--- Trigger to keep FTS index in sync with chunks table (DELETE)
-CREATE TRIGGER chunks_fts_delete AFTER DELETE ON chunks BEGIN
-  DELETE FROM chunks_fts WHERE chunk_id = old.id;
-END;
-
--- Trigger to keep FTS index in sync with chunks table (UPDATE)
-CREATE TRIGGER chunks_fts_update AFTER UPDATE ON chunks BEGIN
-  DELETE FROM chunks_fts WHERE chunk_id = old.id;
-  INSERT INTO chunks_fts(chunk_id, document_id, content)
-  VALUES (new.id, new.document_id, new.text);
-END;
+-- NOTE: FTS5 is not supported by sql.js, so this is disabled for now
+-- CREATE VIRTUAL TABLE chunks_fts USING fts5(
+--   chunk_id UNINDEXED,
+--   document_id UNINDEXED,
+--   content,
+--   tokenize = 'porter'  -- Porter stemming for better search
+-- );
+--
+-- -- Trigger to keep FTS index in sync with chunks table (INSERT)
+-- CREATE TRIGGER chunks_fts_insert AFTER INSERT ON chunks BEGIN
+--   INSERT INTO chunks_fts(chunk_id, document_id, content) 
+--   VALUES (new.id, new.document_id, new.text);
+-- END;
+--
+-- -- Trigger to keep FTS index in sync with chunks table (DELETE)
+-- CREATE TRIGGER chunks_fts_delete AFTER DELETE ON chunks BEGIN
+--   DELETE FROM chunks_fts WHERE chunk_id = old.id;
+-- END;
+--
+-- -- Trigger to keep FTS index in sync with chunks table (UPDATE)
+-- CREATE TRIGGER chunks_fts_update AFTER UPDATE ON chunks BEGIN
+--   DELETE FROM chunks_fts WHERE chunk_id = old.id;
+--   INSERT INTO chunks_fts(chunk_id, document_id, content)
+--   VALUES (new.id, new.document_id, new.text);
+-- END;
 
 -- ==============================================================================
 -- VIEWS (For convenience and analytics)

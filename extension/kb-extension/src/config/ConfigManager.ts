@@ -213,6 +213,7 @@ export class ConfigManager implements IConfigManager {
         'search.fullTextEnabled': true,
         'search.hybridSearchWeight': 0.5,
         'search.topK': 10,
+        'search.copilotReranking': false,
         'ui.theme': 'auto',
         'ui.sidebarPosition': 'left',
         'ui.autoRefresh': true,
@@ -246,7 +247,7 @@ export class ConfigManager implements IConfigManager {
         backupRetention: config.get<number>('storage.backupRetention') ?? 7,
       },
       embedding: {
-        provider: (config.get<string>('embedding.provider') as 'transformers' | 'ollama' | 'lm-studio') || 'transformers',
+        provider: (config.get<string>('embedding.provider') as 'none' | 'transformers' | 'ollama' | 'lm-studio') || 'transformers',
         model: config.get<string>('embedding.model') || 'all-MiniLM-L6-v2',
         dimension: config.get<number>('embedding.dimension') ?? 384,
         batchSize: config.get<number>('embedding.batchSize') ?? 32,
@@ -257,6 +258,7 @@ export class ConfigManager implements IConfigManager {
         fullTextEnabled: config.get<boolean>('search.fullTextEnabled') ?? true,
         hybridSearchWeight: config.get<number>('search.hybridSearchWeight') ?? 0.5,
         topK: config.get<number>('search.topK') ?? 10,
+        copilotReranking: config.get<boolean>('search.copilotReranking') ?? false,
       },
       ui: {
         theme: (config.get<string>('ui.theme') as 'auto' | 'light' | 'dark') || 'auto',

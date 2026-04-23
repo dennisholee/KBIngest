@@ -10,7 +10,7 @@
  * - Recording migration history
  */
 
-import type Database from 'better-sqlite3';
+import type { Database as SqlJsDatabase } from 'sql.js';
 import type {
   Migration,
   MigrationPlan,
@@ -62,7 +62,7 @@ export class MigrationRunner {
   /**
    * Get current schema version from database
    */
-  getCurrentVersion(db: Database.Database): number {
+  getCurrentVersion(db: SqlJsDatabase): number {
     try {
       const stmt = db.prepare(
         'SELECT MAX(version) as version FROM schema_version'
@@ -78,7 +78,7 @@ export class MigrationRunner {
    * Create a migration plan from current version to target
    */
   createPlan(
-    db: Database.Database,
+    db: SqlJsDatabase,
     targetVersion: number
   ): MigrationPlan {
     const currentVersion = this.getCurrentVersion(db);
@@ -135,7 +135,7 @@ export class MigrationRunner {
    * Execute a single migration with transaction safety
    */
   async executeMigration(
-    db: Database.Database,
+    db: SqlJsDatabase,
     migration: Migration,
     fromVersion: number
   ): Promise<MigrationResult> {
@@ -148,18 +148,14 @@ export class MigrationRunner {
         );
       }
 
-      // Execute within transaction
-      const executeInTransaction = db.transaction(() => {
-        migration.up(db);
+      await this.executeWithinTransaction(db, async () => {
+        await migration.up(db);
 
-        // Record in schema_version table
         const stmt = db.prepare(
           'INSERT INTO schema_version (version, description) VALUES (?, ?)'
         ) as any;
-        stmt.run(migration.version, migration.description);
+        stmt.run([migration.version, migration.description]);
       });
-
-      executeInTransaction();
 
       // Validate if validator provided
       if (migration.validate && this.config.validateAfterMigration) {
@@ -205,11 +201,59 @@ export class MigrationRunner {
     }
   }
 
+  private async executeWithinTransaction(
+    db: SqlJsDatabase,
+    operation: () => void | Promise<void>
+  ): Promise<void> {
+    const transactionalDb = db as SqlJsDatabase & {
+      transaction?: (fn: () => void) => () => void;
+      run?: (sql: string) => void;
+      exec?: (sql: string) => void;
+    };
+
+    if (typeof transactionalDb.transaction === 'function') {
+      let operationResult: void | Promise<void> = undefined;
+      const wrapped = transactionalDb.transaction(() => {
+        operationResult = operation();
+      });
+      wrapped();
+      await operationResult;
+      return;
+    }
+
+    const executeSql = (sql: string) => {
+      if (typeof transactionalDb.run === 'function') {
+        transactionalDb.run(sql);
+        return;
+      }
+
+      if (typeof transactionalDb.exec === 'function') {
+        transactionalDb.exec(sql);
+        return;
+      }
+
+      throw new Error('Database does not support transactional execution');
+    };
+
+    try {
+      executeSql('BEGIN TRANSACTION');
+      await operation();
+      executeSql('COMMIT');
+    } catch (error) {
+      try {
+        executeSql('ROLLBACK');
+      } catch {
+        // Preserve the original migration failure.
+      }
+      throw error;
+    }
+  }
+
   /**
    * Execute complete migration plan
    */
   async migrate(
-    db: Database.Database,
+    db: SqlJsDatabase,
     targetVersion: number
   ): Promise<MigrationResult[]> {
     const plan = this.createPlan(db, targetVersion);
@@ -268,25 +312,25 @@ export class MigrationRunner {
   /**
    * Get migration history from database
    */
-  getMigrationHistory(db: Database.Database): Array<{
+  getMigrationHistory(db: SqlJsDatabase): Array<{
     version: number;
     description: string;
     appliedAt: Date;
   }> {
     try {
-      const stmt = db.prepare(
+      const results = db.exec(
         'SELECT version, description, applied_date FROM schema_version ORDER BY version DESC'
-      ) as any;
-      const rows = stmt.all() as Array<{
-        version: number;
-        description: string;
-        applied_date: number;
+      ) as Array<{
+        columns: string[];
+        values: Array<[number, string, string | number]>;
       }>;
 
-      return rows.map((row) => ({
-        version: row.version,
-        description: row.description,
-        appliedAt: new Date(row.applied_date),
+      const rows = results[0]?.values ?? [];
+
+      return rows.map(([version, description, appliedDate]) => ({
+        version,
+        description,
+        appliedAt: new Date(appliedDate),
       }));
     } catch {
       return [];

@@ -18,6 +18,7 @@ import { FileParserFactory } from './FileParser';
 import { ChunkingStrategyFactory } from './ChunkingStrategy';
 import type { IStorageManager } from '../types';
 import type { QueryResult } from '../types';
+import type { QueryEmbeddingService } from '../embedding/QueryEmbeddingService';
 
 /**
  * Default chunking configuration
@@ -57,9 +58,9 @@ export class DocumentIngestionService implements IDocumentIngestion {
   private chunkingStrategyFactory: ChunkingStrategyFactory;
   private jobs: Map<string, IngestionJob>;
   private cleanupInterval: NodeJS.Timeout | null;
-  private embeddingService?: { generateEmbedding: (text: string) => Promise<number[]> };
+  private embeddingService?: QueryEmbeddingService;
 
-  constructor(storageManager: IStorageManager, embeddingService?: any) {
+  constructor(storageManager: IStorageManager, embeddingService?: QueryEmbeddingService) {
     this.storageManager = storageManager;
     this.fileParserFactory = new FileParserFactory();
     this.chunkingStrategyFactory = new ChunkingStrategyFactory();
@@ -354,7 +355,7 @@ export class DocumentIngestionService implements IDocumentIngestion {
                 const vectorResult = await this.storageManager.createVector({
                   chunk_id: storedChunk.id,
                   embedding,
-                  model_name: 'default',
+                  model_name: this.embeddingService.modelName || 'default',
                   dimension: embedding.length,
                 });
 
@@ -411,7 +412,7 @@ export class DocumentIngestionService implements IDocumentIngestion {
  */
 export function createDocumentIngestionService(
   storageManager: IStorageManager,
-  embeddingService?: any
+  embeddingService?: QueryEmbeddingService
 ): DocumentIngestionService {
   return new DocumentIngestionService(storageManager, embeddingService);
 }

@@ -11,6 +11,7 @@ import * as path from 'path';
 import { ConfigManager } from './config/ConfigManager';
 import { StorageManager } from './storage/StorageManager';
 import { KBChatParticipant } from './chat/ChatParticipant';
+import { createQueryEmbeddingService } from './embedding/QueryEmbeddingService';
 
 // Global singletons
 let configManager: ConfigManager | null = null;
@@ -40,6 +41,22 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     // Get configuration snapshot
     const config = await configManager.getConfigSnapshot();
     console.log('[KB Extension] Configuration loaded:', config);
+
+    let queryEmbeddingService;
+    if (config.embedding.provider !== 'none') {
+      try {
+        queryEmbeddingService = await createQueryEmbeddingService(config);
+        console.log(
+          '[KB Extension] Query embedding service ready:',
+          config.embedding.provider,
+          config.embedding.model
+        );
+      } catch (error) {
+        console.warn('[KB Extension] Failed to initialize query embedding service:', error);
+      }
+    } else {
+      console.log('[KB Extension] Query embedding service disabled by configuration');
+    }
 
     // Initialize storage manager
     storageManager = new StorageManager('', path.join(context.globalStorageUri.fsPath));
@@ -110,8 +127,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     // Register KB Chat Participant for Copilot Chat (VS Code 1.116+)
     // Gracefully degrade if Chat API is not available (VS Code 1.109-1.115)
     if (typeof (vscode as any).chat?.createChatParticipant === 'function') {
+      const chatHandler = new KBChatParticipant(storageManager, queryEmbeddingService, {
+        enableCopilotReranking: config.search.copilotReranking,
+      });
       const chatParticipant = (vscode as any).chat.createChatParticipant('kb', async (request: vscode.ChatRequest, context: vscode.ChatContext, stream: vscode.ChatResponseStream, token: vscode.CancellationToken) => {
-        await KBChatParticipant.handleRequest(request, context, stream, token);
+        await chatHandler.handleRequest(request, context, stream, token);
       });
       chatParticipant.iconPath = new vscode.ThemeIcon('book');
       context.subscriptions.push(chatParticipant);

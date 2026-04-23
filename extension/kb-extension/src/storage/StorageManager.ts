@@ -11,6 +11,7 @@
 import { randomUUID } from 'crypto';
 import { createHash } from 'crypto';
 import * as path from 'path';
+import type { Database as SqlJsDatabase } from 'sql.js';
 import type {
   IStorageManager,
   Document,
@@ -48,7 +49,7 @@ export class StorageManager implements IStorageManager {
   async initialize(): Promise<void> {
     try {
       this.db = new DatabaseConnection(this.dbPath, this.schemaPath);
-      this.db.open();
+      await this.db.open();
       this.isInitialized = true;
       console.log(`[StorageManager] Initialized at ${this.dbPath}`);
     } catch (error) {
@@ -124,11 +125,16 @@ export class StorageManager implements IStorageManager {
 
   async close(): Promise<void> {
     if (this.db) {
-      this.db.close();
+      await this.db.close();
       this.db = null;
     }
     this.isInitialized = false;
     console.log('[StorageManager] Connection closed');
+  }
+
+  getDatabaseConnection(): SqlJsDatabase {
+    this.ensureInitialized();
+    return this.db!.getConnection();
   }
 
   // ============================================================

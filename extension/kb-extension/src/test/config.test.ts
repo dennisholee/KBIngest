@@ -42,6 +42,7 @@ describe('ConfigManager', () => {
           'search.fullTextEnabled': true,
           'search.hybridSearchWeight': 0.5,
           'search.topK': 10,
+          'search.copilotReranking': false,
           'ui.theme': 'auto',
           'ui.sidebarPosition': 'left',
           'ui.autoRefresh': true,
@@ -409,6 +410,7 @@ describe('ConfigManager', () => {
       expect(config.search.fullTextEnabled).toBe(true);
       expect(config.search.hybridSearchWeight).toBe(0.5);
       expect(config.search.topK).toBe(10);
+      expect(config.search.copilotReranking).toBe(false);
     });
 
     test('should apply defaults when values undefined', async () => {
@@ -416,6 +418,7 @@ describe('ConfigManager', () => {
       const config = await configManager.getConfigSnapshot();
       expect(config.embedding.dimension).toBe(384);
       expect(config.search.topK).toBe(10);
+      expect(config.search.copilotReranking).toBe(false);
     });
   });
 

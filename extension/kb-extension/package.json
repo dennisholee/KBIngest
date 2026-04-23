@@ -15,6 +15,7 @@
     "Other"
   ],
   "activationEvents": [
+    "onChatParticipant:kb",
     "onCommand:kb-extension.helloWorld",
     "onCommand:kb-extension.showDiagnostics",
     "onCommand:kb-extension.storeApiKey",
@@ -40,6 +41,10 @@
           {
             "name": "ingest",
             "description": "Add new documents or content to the knowledge base"
+          },
+          {
+            "name": "cleanup",
+            "description": "Remove non-critical documents while retaining critical items"
           },
           {
             "name": "help",
@@ -75,12 +80,13 @@
         "kbExtension.embedding.provider": {
           "type": "string",
           "enum": [
+            "none",
             "transformers",
             "ollama",
             "lm-studio"
           ],
           "default": "transformers",
-          "description": "Embedding provider (local only). 'transformers' = @xenova/transformers (local JS), 'ollama' = local Ollama server, 'lm-studio' = LM Studio"
+          "description": "Embedding provider. 'none' disables semantic embeddings for a smaller fully offline build, 'transformers' uses local JS runtime, 'ollama' uses a local Ollama server, 'lm-studio' uses LM Studio"
         },
         "kbExtension.embedding.model": {
           "type": "string",
@@ -127,6 +133,11 @@
           "type": "integer",
           "default": 10,
           "description": "Default number of search results to return"
+        },
+        "kbExtension.search.copilotReranking": {
+          "type": "boolean",
+          "default": false,
+          "description": "Use Copilot Chat to rerank lexical search results when embeddings are unavailable"
         },
         "kbExtension.ui.theme": {
           "type": "string",
@@ -178,7 +189,10 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
+    "clean": "node -e \"require('fs').rmSync('out', { recursive: true, force: true })\"",
+    "compile": "npm run clean && tsc -p ./",
+    "package:lite": "npm run compile && node ./scripts/build-lite-vsix.mjs",
+    "package:uber": "npm run compile && node ./scripts/build-uber-vsix.mjs",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
@@ -198,11 +212,12 @@
     "typescript-eslint": "^8.56.1"
   },
   "dependencies": {
-    "@types/better-sqlite3": "^7.6.13",
-    "better-sqlite3": "^12.9.0",
+    "@xenova/transformers": "^2.17.2",
     "pdfjs-dist": "^4.10.38",
     "sql.js": "^1.14.1",
-    "sqlite3": "^6.0.1",
     "uuid": "^13.0.0"
+  },
+  "optionalDependencies": {
+    "@types/sql.js": "^1.4.4"
   }
 }

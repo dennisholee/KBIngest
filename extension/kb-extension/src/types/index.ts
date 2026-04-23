@@ -282,7 +282,7 @@ export interface KBExtensionConfig {
 
   // Embedding
   embedding: {
-    provider: 'transformers' | 'ollama' | 'lm-studio'; // Local providers only
+    provider: 'none' | 'transformers' | 'ollama' | 'lm-studio'; // Local providers only
     model: string; // Model identifier
     dimension: number; // Vector dimension
     batchSize: number; // For embedding batch operations
@@ -295,6 +295,7 @@ export interface KBExtensionConfig {
     fullTextEnabled: boolean;
     hybridSearchWeight: number; // 0-1 blend of semantic + FT
     topK: number; // Default number of results
+    copilotReranking: boolean; // Use Copilot Chat to rerank lexical results
   };
 
   // UI
@@ -336,6 +337,7 @@ export const CONFIG_KEYS = {
   EMBEDDING_PROVIDER: 'kbExtension.embedding.provider',
   EMBEDDING_MODEL: 'kbExtension.embedding.model',
   SEARCH_TOP_K: 'kbExtension.search.topK',
+  SEARCH_COPILOT_RERANKING: 'kbExtension.search.copilotReranking',
   UI_SIDEBAR_POSITION: 'kbExtension.ui.sidebarPosition',
   ADVANCED_LOG_LEVEL: 'kbExtension.advanced.logLevel',
 } as const;
@@ -361,6 +363,7 @@ export const DEFAULT_CONFIG: KBExtensionConfig = {
     fullTextEnabled: true,
     hybridSearchWeight: 0.5,
     topK: 10,
+    copilotReranking: false,
   },
   ui: {
     theme: 'auto',
